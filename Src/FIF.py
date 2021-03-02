@@ -39,7 +39,7 @@ class Forest:
         self.dataSet= d
         self.trees = []
         #hyperparameters
-        self.NBTREES = 1
+        self.NBTREES = 100
         self.MAXSIZESS = 256
         self.BETA = None
         self.ALPHA = None
@@ -303,7 +303,7 @@ class FTree :
 
 
 
-    def build(self, idsR, currDepth, rd=None):
+    def build(self, idsR, currDepth, rd=None,mv=None):
         """
         Builds the tree
 
@@ -341,20 +341,26 @@ class FTree :
             
             idsLeft = []
             idsRight = []
-            cm = None
-            cp = None
-            
+#            cm = None
+#            cp = None
+            meanL=0
+            meanR=0
+
             for ix in idsR:
                 if self.dataSet.getData(ix)[a] <= v:
                     idsLeft.append(ix)
-                    if cm is None or self.dataSet.getData(ix)[a] < cm:
-                        cm = self.dataSet.getData(ix)[a]
+                    meanL=meanL+self.dataSet.getData(ix)[a]
+#                   if cm is None or self.dataSet.getData(ix)[a] < cm:
+#                       cm = self.dataSet.getData(ix)[a]
                 else:
                     idsRight.append(ix)
-                    if cp is None or self.dataSet.getData(ix)[a] > cp:
-                        cp = self.dataSet.getData(ix)[a]
+                    meanR=meanR+self.dataSet.getData(ix)[a]
+    #                if cp is None or self.dataSet.getData(ix)[a] > cp:
+     #                   cp = self.dataSet.getData(ix)[a]
 
-            return Node(idsR, currDepth, a, v, self.build(np.array(idsLeft), currDepth + 1, 1- len(idsLeft)/len(idsR)), self.build(np.array(idsRight), currDepth + 1, 1- len(idsRight)/len(idsR)),cm,cp,rd)
+            meanL = 0 if len(idsLeft) == 0 else meanL / len(idsLeft)
+            meanR = 0 if len(idsRight) == 0 else meanR / len(idsRight)
+            return Node(idsR, currDepth, a, v, self.build(np.array(idsLeft), currDepth + 1, 1- len(idsLeft)/len(idsR)), self.build(np.array(idsRight), currDepth + 1, 1- len(idsRight)/len(idsR)),meanL,meanR,rd)
             
 
     def pathLength(self, point, node,e,deg):
@@ -384,6 +390,7 @@ class FTree :
             if self.forest.mode == "strongfuzzy":
                 if degs[0] > 0:
                     if degs[1] > 0:
+                        #TO MODIFY
                         return max(self.pathLength(point, node.leftNode,e+1,deg+(degs[0]*node.leftNode.reductionDegree)), self.pathLength(point, node.rightNode,e+1,deg+(degs[1]*node.rightNode.reductionDegree)))
                     else:
                         return self.pathLength(point, node.leftNode,e+1,deg+(degs[0]*node.leftNode.reductionDegree))
@@ -429,9 +436,9 @@ class Node:
         r : Node
             right child.
         m : float
-            min value amont points in the node for attribute a
+            info about points on the left (min or mean)
         M : float
-            max value amont points in the node for attribute a
+            info about points on the right (min or mean)
         sd : float
             reduction degree depending on the number of points in the parent node and the number of points in the node
         Returns
@@ -445,8 +452,8 @@ class Node:
         self.sepVal = v
         self.leftNode = l
         self.rightNode = r
-        self.closestP = m
-        self.closestM = M
+        self.dataLeft = m
+        self.dataRight = M
         self.reductionDegree = sd
     
         
@@ -483,8 +490,8 @@ def c(n):
 
 if __name__ == "__main__":
 #    d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
- #   d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0)
- #   d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0)
+#    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0)
+#    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0)
     d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
     e = d.getEvalDataSet()
 
@@ -507,7 +514,7 @@ if __name__ == "__main__":
     vw.viewIsolatedDatasetWithAnomalies(d,f.trees[0],scores,f.ALPHA,e,ax[0],msg)
 
     print("\n")
-    A=0.84
+    A=0.82
     B=0.01
     print("FUZZY METHOD WITH PARAMETERS ALPHA:",A, "BETA:",B)
     f.setMode("strongfuzzy")
