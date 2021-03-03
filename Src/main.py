@@ -15,7 +15,7 @@ import sys
 #d = dt.Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8) 
 d = dt.Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
 #d = dt.Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
-#d = dt.Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.7)
+#d = dt.Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 
 
 """
@@ -23,41 +23,40 @@ Generate a 100 trees forest and compare the result of the crisp ensemble-based m
  an individual strongfuzzy interpretation of each tree
 """
 METHOD = "crisp"#"strongfuzzy","fuzzy","orthogonal","crisp"
-ALP=0.5
-BET=0
-f = fif.Forest(d)
+
+beta=0.05
+f = fif.FForest(d,beta)
 f.build()
 
 compB={'P':0,'R':0,'F':0}
 compW={'P':0,'R':0,'F':0}
 moyESF=0
 moyEC=0
-for treeI in range(len(f.trees)):
+for treeI in range(len(f.trees)): 
+    """
+    CRISP INDIVIDUAL TREE EVALUATION
+    """ 
+    print("\tCRISP SCORE COMPUTATION:")   
+    f.setAlpha(0.5)
+    scores = f.computeScores("crisp",treeI)
+    pC,rC,fmC, eC = f.evaluate(scores)
+    msg = "-CRISP PREC:"+str(pC)+" RAP:"+str(rC)+" FM:"+str(fmC)+" ER:"+str(eC)
+    print(msg)
+    print("\n***************\n")
+
     """
     STRONGFUZZY INDIVIDUAL TREE EVALUATION
     """
     print("TREE :",treeI)
-    print("\tFUZZY ISOLATION TREE:")
-    f.setMode("strongfuzzy")
-    f.setAlpha(0.84)
-    f.setBeta(0.05)
-    scores = f.computeScores(treeI)
+    print("\tFUZZY SCORE COMPUTATION:")
+    f.setAlpha(0.8)
+    scores = f.computeScores("strongfuzzy",treeI)
     pSF,rSF,fmSF,eSF = f.evaluate(scores)
     msg="-FUZZY PREC:"+str(pSF)+" RAP:"+str(rSF)+" FM:"+str(fmSF)+" ER:"+str(eSF)
     print(msg)
- 
-    """
-    CRISP INDIVIDUAL TREE EVALUATION
-    """ 
-    print("\tCRISP ISOLATION TREE:")   
-    f.setMode("crisp")
-    f.setAlpha(0.5)
-    f.setBeta(0)
-    scores = f.computeScores(treeI)
-    pC,rC,fmC, eC = f.evaluate(scores)
-    msg = "-CRISP PREC:"+str(pC)+" RAP:"+str(rC)+" FM:"+str(fmC)+" ER:"+str(eC)
-    print(msg)
-    print("\n")
+
+
+
     if fmSF > fmC:
         compB['F'] = compB['F'] +1
     if fmC > fmSF:
