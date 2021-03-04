@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+
+import numpy as np
+from scipy.interpolate import interp1d
+from matplotlib.ticker import MaxNLocator
+import matplotlib.pyplot as plt
+
+x     = [0,10,20,30,40,50,60,70,80,90,100]
+
+precC = [0,0.041462268913881814,0.045410418888679756,0.04177540694836092,0.042995337995337994,0.045162546177891436,0.04730165004078048,0.043042274912984305,0.043137283768862715,0.04397402597402597,0.04166610362262536]
+precF = [0,0.175,0.18666666666666668,0.21083333333333334,0.16499999999999998,0.1642857142857143,0.195,0.14261904761904762,0.18023809523809523,0.21428571428571425,0.18916666666666668]
+rapC  = [0]+[1.0]*10
+rapF  = [0,0.8,0.9,1.0,0.8,0.8,0.8,0.7,0.9,1.0,0.9]
+fmC   = [0,0.07956809454635541,0.0868341803124412,0.0801065971065971,0.0824130416754105,0.08635537561853351,0.0903012509991915,0.0824565169347778,0.08267434658739008,0.08419371732715061,0.07996207989195367]
+fmF   = [0,0.28428571428571425,0.30857142857142855,0.346031746031746,0.27238095238095233,0.2707142857142857,0.31190476190476185,0.23547619047619048,0.29857142857142854,0.35023809523809524,0.31079365079365073]
+eC    = [0,11.683168316831685,10.544554455445544,11.683168316831683,11.138613861386137,10.643564356435643,10.049504950495049,11.336633663366339,11.089108910891088,10.94059405940594,11.534653465346533]
+eF    = [0,1.9306930693069304,2.1287128712871284,1.9801980198019802,2.128712871287129,1.9801980198019797,1.9801980198019802,2.2772277227722775,2.227722772277228,1.9306930693069309,2.0297029702970297]
+
+#computation time 
+crisp = [0,3,7,13,17,22,26,29,33,37,40]
+fuzzy = [0,21,46,69,96,125,156,180,218,239,263]
+
+fig, ax = plt.subplots(5)
+
+#ax = plt.figure().gca()
+
+#display precision
+ax[0].plot(x,precC,'b:',linewidth=2.0,label="crisp")
+ax[0].plot(x,precF,'r',linewidth=2.0,label="fuzzy")
+ax[0].set_title("PREC (CRISP is plain, FUZZY is dashe")
+
+ax[1].plot(x,rapC,'b:',linewidth=2.0,label="crisp")
+ax[1].plot(x,rapF,'r-',linewidth=2.0,label="fuzzy")
+ax[1].set_title("RAP (CRISP is plain, FUZZY is dashed)")
+
+ax[2].plot(x,fmC,'b:',linewidth=2.0,label="crisp")
+ax[2].plot(x,fmF,'r-',linewidth=2.0,label="fuzzy")
+ax[2].set_title("FM (CRISP is plain, FUZZY is dashed)")
+
+ax[3].plot(x,eC,'b:',linewidth=2.0,label="crisp")
+ax[3].plot(x,eF,'r-',linewidth=2.0,label="fuzzy")
+ax[3].set_title("ER (CRISP is plain, FUZZY is dashed)")
+
+ax[4].plot(x,np.log(crisp),'b:',linewidth=2.0,label="crisp")
+ax[4].plot(x,np.log(fuzzy),'r-',linewidth=2.0,label="fuzzy")
+ax[4].set_title("TIME (CRISP is plain, FUZZY is dashed) log")
+
+
+#ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+plt.grid(True)
+plt.show()
