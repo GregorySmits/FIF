@@ -16,7 +16,7 @@ import time
 #d = dt.Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
 d = dt.Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
 #d = dt.Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
-#d = dt.Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
+#d = dt.Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.7)
 
 
 """
@@ -28,8 +28,8 @@ NBRUN=10
 
 nbT=10
 nbTMax=100
-moyC={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10)}
-moySF={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10)}
+moyC={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10),'AUC':([0]*10)}
+moySF={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10),'AUC':([0]*10)}
 
 while nbT <= nbTMax: 
     meanTimeC=0    
@@ -44,6 +44,10 @@ while nbT <= nbTMax:
         f.setAlpha(0.55)
         scores = f.computeScores("crisp")
         pC,rC,fmC, eC = f.evaluate(scores)
+        aucC = f.computeAUC(scores)
+        print("CRISP AUC",aucC)
+
+        moyC['AUC'][R] = moyC['AUC'][R] + aucC
         t_end = time.time()
         minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
         cutsC['minP']=cutsC['minP']+minP
@@ -65,6 +69,9 @@ while nbT <= nbTMax:
         t_beg = time.time()
         f.setAlpha(0.6)
         scores = f.computeScores("strongfuzzy")
+        aucF = f.computeAUC(scores)
+        print("FUZZY AUC",aucF)
+        moySF['AUC'][R] = moySF['AUC'][R] + aucF
         pC,rC,fmC, eC = f.evaluate(scores)
         t_end = time.time()
         minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)

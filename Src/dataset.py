@@ -79,7 +79,14 @@ class Dataset:
     def getAttributes(self):
         return self.attributes
         
- 
+    def binClassesVector(self):
+        res = np.zeros(len(self.getEvalDataSet()))
+        j=0
+        for i in self.getEvalDataSet():
+            pt = self.data[i]
+            res[j] = int(pt[len(pt)-1])
+            j=j+1
+        return res
 
 if __name__ == "__main__":
 #    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True)

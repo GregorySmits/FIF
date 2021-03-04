@@ -9,6 +9,7 @@ from dataset import *
 import math
 import random
 import numpy as np
+from sklearn.metrics import roc_auc_score
 EPSILONMIN=0.001
 
 
@@ -155,6 +156,11 @@ class FForest:
         sampleSize = min(self.MAXSIZESS, nbPoints)
         hx = 2 ** ( -hx / c(sampleSize))
         return hx
+    
+    def computeAUC(self,scores):
+        binData = self.dataSet.binClassesVector()
+        scoresSelected = np.take(scores,self.dataSet.getEvalDataSet())
+        return roc_auc_score(binData,scoresSelected)
 
     def computeScore(self, x, method : str,treeId : int = None):
         """
@@ -562,6 +568,7 @@ if __name__ == "__main__":
 #    d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
     e = d.getEvalDataSet()
 
+
 #    f = Forest(d, "strongfuzzy",0.84,0.05)
     beta=0.05
     f = FForest(d,beta)
@@ -577,6 +584,7 @@ if __name__ == "__main__":
         
         scores = f.computeScores("crisp",aTreeId)
         pC,rC,fmC, eR = f.evaluate(scores)
+        print("CRISP ROC AUC ",f.computeAUC(scores))
         minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
         print("CRISP SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
         msg = "P"+str(round(pC,1))+" R"+str(round(rC,1))+" F"+str(round(fmC,1))+" R"+str(round(eR,1))
@@ -588,6 +596,8 @@ if __name__ == "__main__":
         scoresF = f.computeScores("strongfuzzy",aTreeId)
         pSF,rSF,fmSF,eRSF = f.evaluate(scoresF)
         minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scoresF)
+        print("FUZZY ROC AUC ",f.computeAUC(scoresF))
+
         print("FUZZY SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
         msg="P"+str(round(pSF,1))+" R"+str(round(rSF,1))+" F"+str(round(fmSF,1))+" E"+str(round(eRSF,1))
         print(msg)
