@@ -53,7 +53,7 @@ for treeI in range(len(f.trees)):
     """
     print("TREE :",treeI)
     print("\tFUZZY SCORE COMPUTATION:")
-    f.setAlpha(0.6)
+    f.setAlpha(0.9)
     scores = f.computeScores("strongfuzzy",treeI)
     pSF,rSF,fmSF,eSF = f.evaluate(scores)
     precMoySF=precMoySF + pSF

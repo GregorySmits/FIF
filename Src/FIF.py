@@ -52,6 +52,7 @@ class Node:
         self.rightNode = r
         self.reductionDegree = rd
         self.separationDegree = sd
+       # print("NEW NODE DEPTH=",self.depth,"sepAtt=",self.sepAtt,"sepVal",self.sepVal,"reductionDegree=",self.reductionDegree,"separationDegree=",self.separationDegree)
         
     def __str__(self):
         ret= ""
@@ -282,13 +283,13 @@ class FForest:
         nbP = 0
         nbN = 0
         errRt=0
-        #print("WITH SETTINGS ALPHA",self.ALPHA,"BETA",self.BETA)
+        print("WITH SETTINGS ALPHA",self.ALPHA,"BETA",self.BETA)
         for pi in self.dataSet.getEvalDataSet():
             pt = self.dataSet.getData(pi)
             classO = int(pt[len(pt)-1])
             deg = scores[pi]
             if classO == 1:
-               # print("\t\tANOMALY DEG=",deg)
+                print("\t\tANOMALY DEG=%.4f"%deg)
                 nbP = nbP+1
                 if deg >= self.ALPHA:
                     TP = TP + 1
@@ -296,7 +297,7 @@ class FForest:
                     errRt=errRt+1
                     FN = FN + 1
             else:
-                #print("REGULAR DEG=",deg)
+                print("REGULAR DEG=%.4f"%deg)
                 nbN=nbN+1
                 if deg < self.ALPHA:
                     TN = TN + 1
@@ -378,16 +379,16 @@ class FTree :
             else:
                 r = attRange * self.forest.BETA / 2
                 if v < sep :
-                    rl = 1 if v < sep-2*r else (sep - v) / 2*r
+                    rl = 1 if v < sep-2*r else (sep - v) / (2*r)
                     ret=(rl,0)
                 else:
-                    rg = 1 if v > sep+2*r else (v - sep) / 2*R 
+                    rg = 1 if v > sep+2*r else (v - sep) / (2*r)
                     ret = (0,rg)
         
         if method == "strongfuzzy":
             r = attRange * self.forest.BETA / 2
             if v < sep + r:
-                rl = 1.0 if v <= sep - r else (sep+r-v)/ 2*r
+                rl = 1.0 if v <= sep - r else (sep+r-v)/ (2*r)
                 rg = 1 - rl
                 ret = (rl,rg)
             else:
@@ -413,12 +414,13 @@ class FTree :
             the isolation degree that is computed using a FSB def
         """
         ret = 0
-        r = attRange * self.forest.BETA / 2
-        if mean <= sep:
-            ret = 1.0 if mean <= (sep - r) else (sep+r-mean)/ 2*r
-        else:
-            ret = 1.0 if mean >= (sep + r) else (mean-sep + r)/ 2*r
-#        print("SEPARATION DEGREE mean=",mean,"sep=",sep,"r=",r,"SD=",ret)
+        if mean != 0 or sep!= 0:    
+            r = attRange * self.forest.BETA / 2
+            if mean <= sep:
+                ret = 1.0 if mean <= (sep - r) else (sep+r-mean)/ (2*r)
+               
+            else:
+                ret = 1.0 if mean >= (sep + r) else (mean-sep + r)/ (2*r)
         return ret
 
 
@@ -476,6 +478,7 @@ class FTree :
             attRange = self.dataSet.maxs[a] - self.dataSet.mins[a]
             lrd = 1- len(idsLeft)/len(idsR)
             rrd = 1- len(idsRight)/len(idsR)
+
          #   print("LEFT REDUCTION DEGREE nbPtParent=",len(idsR),"nbPointsLeft=",len(idsLeft),"RD=",lrd)
           #  print("RIGHT REDUCTION DEGREE nbPtParent=",len(idsR),"nbPointsRight=",len(idsRight),"RD=",rrd)
             lsd = self.separationDegree(attRange,v,meanR)
@@ -484,7 +487,7 @@ class FTree :
             return Node(idsR, currDepth, a, v, self.build(np.array(idsLeft), currDepth + 1, lrd , lsd), self.build(np.array(idsRight), currDepth + 1, rrd,rsd),rd,sd)
             
 
-    def pathLength(self, point, node,e,deg, method : str):
+    def pathLength(self, point, node,e,deg, method : str, nbP : int =0):
         """
         Computes the path's length of a data point in the tree from Node node.
         To compute the path's length in the entire tree, set node to the root of the tree.
@@ -514,12 +517,20 @@ class FTree :
                     leftDeg = self.aggNodeDegrees(deg,degs[0],node.leftNode.reductionDegree,node.leftNode.separationDegree)
                     if degs[1] > 0:
                         rightDeg =self.aggNodeDegrees(deg,degs[1],node.rightNode.reductionDegree,node.rightNode.separationDegree)
-                        return max(self.pathLength(point, node.leftNode,e+1,leftDeg,method), self.pathLength(point, node.rightNode,e+1,rightDeg,method))
+                        p1 = self.pathLength(point, node.leftNode,e+1,leftDeg,method)
+                        p2 = self.pathLength(point, node.rightNode,e+1,rightDeg,method)
+
+                        return max(p1,p2)#(p1+p2)/2
+                        #return min(self.pathLength(point, node.leftNode,e+1,leftDeg,method), self.pathLength(point, node.rightNode,e+1,rightDeg,method))
+                        #return max(self.pathLength(point, node.leftNode,e+1,leftDeg,method), self.pathLength(point, node.rightNode,e+1,rightDeg,method))
                     else:
-                        return self.pathLength(point, node.leftNode,e+1,leftDeg,method)
+                        p1 = self.pathLength(point, node.leftNode,e+1,leftDeg,method)
+                        return p1
                 else:
                     rightDeg =self.aggNodeDegrees(deg,degs[1],node.rightNode.reductionDegree,node.rightNode.separationDegree)
-                    return self.pathLength(point, node.rightNode,e+1,rightDeg,method)
+                    p2= self.pathLength(point, node.rightNode,e+1,rightDeg,method)
+
+                    return p2
 
             if method == "crisp":
                 if point[node.sepAtt] <= node.sepVal:
@@ -533,25 +544,33 @@ class FTree :
             # (If it is an external node)
             if method == "crisp":
                 return e #/ c(len(self.dataSet.trainingData))
-            else:
-                #print("\tTEST ",deg,"/",e)
+            else:                
                 return deg #/ c(len(self.dataSet.trainingData))
         
     def aggNodeDegrees(self,curDegree :float,pointIsolation : float,nodeReduction:float,nodeSeparation:float):
         """
         curDegree is None at first call
         """
-        #using all degrees and the probabiliste 
-        nodeDeg = nodeReduction * nodeSeparation
-        nodeDeg = min(nodeReduction, nodeSeparation)
+        #using all degrees and the probabilistic norm
 
         if curDegree is None: 
             curDegree = 0
+        #
+        if nodeSeparation > 1:
+            print("!!! NODE SEPARATION",nodeSeparation)
+        if nodeReduction > 1:
+            print("!!! NODE REDUCTION",nodeReduction)
 
+        if pointIsolation > 1:
+            print("!!! NODE POINT ISOLATION",pointIsolation)
+
+        nodeDeg = nodeSeparation*nodeReduction
+
+        return curDegree + (1- (pointIsolation + nodeDeg - pointIsolation * nodeDeg))
 #first method
-#        return curDegree + (pointIsolation * nodeReduction)
+ #       return curDegree + (pointIsolation * nodeReduction)
 #using Zadeh tconorm
-        return curDegree + max(pointIsolation, nodeReduction*nodeSeparation)
+#        return curDegree + (1 - max(pointIsolation, nodeReduction*nodeSeparation) 
 #using the probabilistic tconorm between point separation and node degree
 #        return curDegree + (pointIsolation + nodeDeg  - pointIsolation * nodeDeg)
 #probabilistic tnorm and conorm withou node separation
@@ -564,7 +583,7 @@ class FTree :
 if __name__ == "__main__":
     d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
-#    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0)
+#    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.9)
 #    d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
     e = d.getEvalDataSet()
 
@@ -574,11 +593,14 @@ if __name__ == "__main__":
     f = FForest(d,beta)
 
     f.build()
+    #print(f)
+   
     import viewer as vw
     fig, ax = plt.subplots(2,5)
     for i in range(5):
         aTreeId =random.randint(0,f.NBTREES-1)
-        A=0.55        
+        
+        A=0.5        
         print("CRISP METHOD WITH PARAMETERS ALPHA:",A)
         f.setAlpha(A)
         
@@ -590,7 +612,8 @@ if __name__ == "__main__":
         msg = "P"+str(round(pC,1))+" R"+str(round(rC,1))+" F"+str(round(fmC,1))+" R"+str(round(eR,1))
         print(msg)
         vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scores,f.ALPHA,e,ax[0][i],msg)
-        A=0.6
+        
+        A=0.9
         print("FUZZY METHOD WITH PARAMETERS ALPHA:",A, "BETA:",beta)
         f.setAlpha(A)
         scoresF = f.computeScores("strongfuzzy",aTreeId)
