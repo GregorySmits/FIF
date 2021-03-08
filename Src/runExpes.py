@@ -3,6 +3,8 @@
 Created on Wed Dec  9 12:02:48 2020
 
 @author: veron
+
+Run this file to generate the experimentations with different forest sizes
 """
 
 import dataset as dt
@@ -12,8 +14,28 @@ import numpy as np
 import math
 import sys
 import time
+import displayExpes as displayer
 
-d = dt.Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
+
+real_datasets = ["annthyroid", "arrhythmia", "breastw", "cardio", "cover", "hbk", "http", "ionos", "letter", "lympho",
+                 "mammography", "musk", "pima", "satellite", "shuttle", "smtp", "wood"]
+
+dimensions = [6, 271, 9, 21, 10, 4, 3, 32, 32, 18, 6, 166, 8, 36, 9, 3, 6]
+
+idx_dataset = 6
+converters = {}
+header = []
+ 
+for i in range(dimensions[idx_dataset]):
+    converters[i] = lambda s: float(s.strip() or 0)
+    header.append(str(i))
+  
+converters[dimensions[idx_dataset]] = lambda s: int(float(s.strip() or 0))
+header.append("CLASS")
+
+d = dt.Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
+
+#d = dt.Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
 #d = dt.Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
 #d = dt.Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #d = dt.Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.7)
@@ -30,6 +52,8 @@ nbT=10
 nbTMax=100
 moyC={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10),'AUC':([0]*10)}
 moySF={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10),'AUC':([0]*10)}
+
+precC, precF, recC, recF, fC, fF, eC, eF, tC, tF, aC, aF = [] , [], [], [], [], [], [], [], [], [], [], []
 
 while nbT <= nbTMax: 
     meanTimeC=0    
@@ -53,8 +77,8 @@ while nbT <= nbTMax:
         cutsC['minP']=cutsC['minP']+minP
         cutsC['maxP']=cutsC['maxP']+maxP
         cutsC['moyP']=cutsC['moyP']+moyP
-        cutsC['minN']=cutsC['minP']+minN
-        cutsC['maxN']=cutsC['minP']+maxN
+        cutsC['minN']=cutsC['minN']+minN
+        cutsC['maxN']=cutsC['maxN']+maxN
         cutsC['moyN']=cutsC['moyN']+moyN
 
         meanTimeC =meanTimeC + round(t_end-t_beg, 3)
@@ -78,8 +102,8 @@ while nbT <= nbTMax:
         cutsF['minP']=cutsF['minP']+minP
         cutsF['maxP']=cutsF['maxP']+maxP
         cutsF['moyP']=cutsF['moyP']+moyP
-        cutsF['minN']=cutsF['minP']+minN
-        cutsF['maxN']=cutsF['minP']+maxN
+        cutsF['minN']=cutsF['minN']+minN
+        cutsF['maxN']=cutsF['maxN']+maxN
         cutsF['moyN']=cutsF['moyN']+moyN
         meanTimeSF =meanTimeSF + round(t_end-t_beg, 3)
         #print("Fuzzy evaluation completed = %ss"%round(t_end-t_beg, 3))
@@ -92,6 +116,9 @@ while nbT <= nbTMax:
    
     meanTimeC = meanTimeC / NBRUN
     meanTimeSF = meanTimeSF / NBRUN
+    
+    tC.append(meanTimeC)
+    tF.append(meanTimeSF)
 
     print("CRISP evaluation completed in average in = ",meanTimeC)
     #print("CRISP[NBTREE="+str(nbT)+"]",moyC)
@@ -114,6 +141,26 @@ for k in moyC.keys():
         sf=sf+","+str(moySF[k][R])
     print("CRISP",cr)
     print("FUZZY",sf)
+    
+    c = [float(s) for s in cr.split(',')[1:]]
+    f = [float(s) for s in sf.split(',')[1:]]
+    if k == 'P':
+        precC = c
+        precF = f
+    elif k == 'R':
+        recC = c
+        recF = f
+    elif k == 'F':
+        fC = c
+        fF = f
+    elif k == 'E':
+        eC = c
+        eF = f
+    elif k == "AUC":
+        aC = c
+        aF = f
 
-sys.exit(0)
+plottie = displayer.Displayer(precC, precF, recC, recF, fC, fF, eC, eF, tC, tF, aC, aF)
+plottie.figure.show()
+
 

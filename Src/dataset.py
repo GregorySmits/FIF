@@ -25,7 +25,7 @@ class Dataset:
         if supervised:
             us = tuple(range(len(header)))
         
-        self.data = np.loadtxt(df, delimiter=",",converters = conv,skiprows=1,usecols=us)#is a np.ndarray
+        self.data = np.loadtxt(df, delimiter=",",converters = conv,skiprows=0,usecols=us)#is a np.ndarray
         self.nbPoints = len(self.data)
 
         self.mins = self.data.min(0)

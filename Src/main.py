@@ -12,9 +12,32 @@ import numpy as np
 import math
 import sys
 
+
+#The datasets and their dimensions
+real_datasets = ["annthyroid", "arrhythmia", "breastw", "cardio", "cover", "hbk", "http", "ionos", "letter", "lympho",
+                 "mammography", "musk", "pima", "satellite", "shuttle", "smtp", "wood"]
+
+dimensions = [6, 271, 9, 21, 10, 4, 3, 32, 32, 18, 6, 166, 8, 36, 9, 3, 6]
+
+#You just have to choose the index of the dataset in the table. Example : idx_dataset = 0 <=> annthyroid
+idx_dataset = 6
+converters = {}
+header = []
+ 
+for i in range(dimensions[idx_dataset]):
+    converters[i] = lambda s: float(s.strip() or 0)
+    header.append(str(i))
+  
+converters[dimensions[idx_dataset]] = lambda s: int(float(s.strip() or 0))
+header.append("CLASS")
+
+#Loading the dataset (do not forget to set skiprows=0 in the __init__ of the Dataset class, 
+#because the files do not have headers)
+d = dt.Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
+
 #d = dt.Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
 #d = dt.Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
-d = dt.Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
+#d = dt.Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #d = dt.Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 
 
@@ -39,6 +62,7 @@ for treeI in range(len(f.trees)):
     """
     CRISP INDIVIDUAL TREE EVALUATION
     """ 
+    print("TREE :",treeI)
     print("\tCRISP SCORE COMPUTATION:")   
     f.setAlpha(0.5)
     scores = f.computeScores("crisp",treeI)
@@ -46,12 +70,12 @@ for treeI in range(len(f.trees)):
     precMoy=precMoy+pC
     msg = "-CRISP PREC:"+str(pC)+" RAP:"+str(rC)+" FM:"+str(fmC)+" ER:"+str(eC)
     print(msg)
-    print("\n***************\n")
+    #print("\n***************\n")
 
     """
     STRONGFUZZY INDIVIDUAL TREE EVALUATION
     """
-    print("TREE :",treeI)
+    #print("TREE :",treeI)
     print("\tFUZZY SCORE COMPUTATION:")
     f.setAlpha(0.9)
     scores = f.computeScores("strongfuzzy",treeI)
@@ -59,6 +83,7 @@ for treeI in range(len(f.trees)):
     precMoySF=precMoySF + pSF
     msg="-FUZZY PREC:"+str(pSF)+" RAP:"+str(rSF)+" FM:"+str(fmSF)+" ER:"+str(eSF)
     print(msg)
+    print("\n***************\n")
 
 
 
