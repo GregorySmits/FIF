@@ -289,7 +289,7 @@ class FForest:
             classO = int(pt[len(pt)-1])
             deg = scores[pi]
             if classO == 1:
-                print("\t\tANOMALY DEG=%.4f"%deg)
+                #print("\t\tANOMALY DEG=%.4f"%deg)
                 nbP = nbP+1
                 if deg >= self.ALPHA:
                     TP = TP + 1
@@ -297,7 +297,7 @@ class FForest:
                     errRt=errRt+1
                     FN = FN + 1
             else:
-                print("REGULAR DEG=%.4f"%deg)
+                #print("REGULAR DEG=%.4f"%deg)
                 nbN=nbN+1
                 if deg < self.ALPHA:
                     TN = TN + 1
@@ -447,7 +447,7 @@ class FTree :
         """
         attributes = self.dataSet.getAttributes()
         
-        if len(idsR) <= 1:# or currDepth >= self.MAXHEIGHT:
+        if len(idsR) <= 1 or currDepth >= self.MAXHEIGHT:
             return Node(idsR, currDepth, None, None, None,None, rd,sd)
         else:
             a = random.randint(0, len(attributes)-1)
