@@ -10,6 +10,7 @@ import math
 import random
 import numpy as np
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
 EPSILONMIN=0.001
 
 
@@ -161,7 +162,9 @@ class FForest:
     def computeAUC(self,scores):
         binData = self.dataSet.binClassesVector()
         scoresSelected = np.take(scores,self.dataSet.getEvalDataSet())
-        return roc_auc_score(binData,scoresSelected)
+        ruc= roc_auc_score(binData,scoresSelected)
+        ns_fpr, ns_tpr, _ = roc_curve(binData, scoresSelected)
+        return ruc,ns_fpr,ns_tpr
 
     def computeScore(self, x, method : str,treeId : int = None):
         """
@@ -297,7 +300,7 @@ class FForest:
                     errRt=errRt+1
                     FN = FN + 1
             else:
-                #print("REGULAR DEG=%.4f"%deg)
+               # print("REGULAR DEG=%.4f"%deg)
                 nbN=nbN+1
                 if deg < self.ALPHA:
                     TN = TN + 1
@@ -520,7 +523,7 @@ class FTree :
                         p1 = self.pathLength(point, node.leftNode,e+1,leftDeg,method)
                         p2 = self.pathLength(point, node.rightNode,e+1,rightDeg,method)
 
-                        return max(p1,p2)#(p1+p2)/2
+                        return (p1+p2)/2#(p1+p2)/2#min(p1,p2)
                         #return min(self.pathLength(point, node.leftNode,e+1,leftDeg,method), self.pathLength(point, node.rightNode,e+1,rightDeg,method))
                         #return max(self.pathLength(point, node.leftNode,e+1,leftDeg,method), self.pathLength(point, node.rightNode,e+1,rightDeg,method))
                     else:
@@ -565,8 +568,8 @@ class FTree :
             print("!!! NODE POINT ISOLATION",pointIsolation)
 
         nodeDeg = nodeSeparation*nodeReduction
-
-        return curDegree + (1- (pointIsolation + nodeDeg - pointIsolation * nodeDeg))
+        return curDegree + (1 - pointIsolation * nodeDeg)
+#        return curDegree + (1- (pointIsolation + nodeDeg - pointIsolation * nodeDeg))
 #first method
  #       return curDegree + (pointIsolation * nodeReduction)
 #using Zadeh tconorm
@@ -581,50 +584,78 @@ class FTree :
 #        return curDegree * max(1-min(nodeReduction,nodeSeparation),pointIsolation)
 
 if __name__ == "__main__":
+
+    #The datasets and their dimensions
+    real_datasets = ["annthyroid", "arrhythmia", "breastw", "cardio", "cover", "hbk", "http", "ionos", "letter", "lympho",
+                    "mammography", "musk", "pima", "satellite", "shuttle", "smtp", "wood"]
+
+    dimensions = [6, 271, 9, 21, 10, 4, 3, 32, 32, 18, 6, 166, 8, 36, 9, 3, 6]
+
+    #You just have to choose the index of the dataset in the table. Example : idx_dataset = 0 <=> annthyroid
+    idx_dataset = 6
+    converters = {}
+    header = []
+    
+    for i in range(dimensions[idx_dataset]):
+        converters[i] = lambda s: float(s.strip() or 0)
+        header.append(str(i))
+    
+    converters[dimensions[idx_dataset]] = lambda s: int(float(s.strip() or 0))
+    header.append("CLASS")
+
+    #Loading the dataset (do not forget to set skiprows=0 in the __init__ of the Dataset class, 
+    #because the files do not have headers)
+    d = Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
+
 #    d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
-    d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8) 
+#    d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8) 
     e = d.getEvalDataSet()
 
 
 #    f = Forest(d, "strongfuzzy",0.84,0.05)
     beta=0.05
-    f = FForest(d,beta)
+    nbT=100
+    f = FForest(d,beta,nbT)
 
     f.build()
     #print(f)
    
     import viewer as vw
-    fig, ax = plt.subplots(2,5)
-    for i in range(5):
-        aTreeId =random.randint(0,f.NBTREES-1)
+    fig, ax = plt.subplots(2)
+    aTreeId =random.randint(0,f.NBTREES-1)
+       
+    A=0.5        
+    print("CRISP METHOD WITH PARAMETERS ALPHA:",A)
+    f.setAlpha(A)
         
-        A=0.5        
-        print("CRISP METHOD WITH PARAMETERS ALPHA:",A)
-        f.setAlpha(A)
-        
-        scores = f.computeScores("crisp",aTreeId)
-        pC,rC,fmC, eR = f.evaluate(scores)
-        print("CRISP ROC AUC ",f.computeAUC(scores))
-        minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
-        print("CRISP SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
-        msg = "P"+str(round(pC,1))+" R"+str(round(rC,1))+" F"+str(round(fmC,1))+" R"+str(round(eR,1))
-        print(msg)
-        vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scores,f.ALPHA,e,ax[0][i],msg)
-        
-        A=0.95
-        print("FUZZY METHOD WITH PARAMETERS ALPHA:",A, "BETA:",beta)
-        f.setAlpha(A)
-        scoresF = f.computeScores("strongfuzzy",aTreeId)
-        pSF,rSF,fmSF,eRSF = f.evaluate(scoresF)
-        minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scoresF)
-        print("FUZZY ROC AUC ",f.computeAUC(scoresF))
+    scores = f.computeScores("crisp",)
+    pC,rC,fmC, eR = f.evaluate(scores)
+    auc,lr_fpr, lr_tpr = f.computeAUC(scores)
+    ax[0].plot(lr_fpr, lr_tpr, marker=',', label='Crisp')
 
-        print("FUZZY SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
-        msg="P"+str(round(pSF,1))+" R"+str(round(rSF,1))+" F"+str(round(fmSF,1))+" E"+str(round(eRSF,1))
-        print(msg)
-        print("\n")
-        vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,ax[1][i],msg)
+    print("CRISP ROC AUC ",auc)
+    minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
+    print("CRISP SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
+    msg = "P"+str(round(pC,1))+" R"+str(round(rC,1))+" F"+str(round(fmC,1))+" R"+str(round(eR,1))
+    print(msg)
+    
+    A=0.79
+    print("FUZZY METHOD WITH PARAMETERS ALPHA:",A, "BETA:",beta)
+    f.setAlpha(A)
+    scoresF = f.computeScores("strongfuzzy")
+    pSF,rSF,fmSF,eRSF = f.evaluate(scoresF)
+    minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scoresF)
+    auc,lr_fpr, lr_tpr = f.computeAUC(scoresF)
+    print("FUZZY ROC AUC ",auc)
+    # plot the roc curve for the model
+    ax[1].plot(lr_fpr, lr_tpr, marker='.', label='Fuzzy')#
+
+    print("FUZZY SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
+    msg="P"+str(round(pSF,1))+" R"+str(round(rSF,1))+" F"+str(round(fmSF,1))+" E"+str(round(eRSF,1))
+    print(msg)
+    print("\n")
+  #  vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,None,None)
     plt.show()
  
