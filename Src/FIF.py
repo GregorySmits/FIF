@@ -247,11 +247,19 @@ class FForest:
         moyP = 0
 
         n=0
+
+        scoresP = []
+        scoresN = []
         for pi in self.dataSet.getEvalDataSet():
             pt = self.dataSet.getData(pi)
             classO = int(pt[len(pt)-1])
             deg = scores[pi]
             if classO == 1:
+                scoresP.append(deg)
+            else:
+                scoresN.append(deg)
+
+        """
                 n=n+1
                 if deg < minP:
                     minP = deg
@@ -268,6 +276,8 @@ class FForest:
         moyP = moyP / n if n > 0 else moyP
         moyN = moyN / (len(self.dataSet.getEvalDataSet()) -n)
         return minP,maxP,moyP,minN,maxN,moyN
+        """
+        return 
 
 
     def evaluate(self, scores):
@@ -479,8 +489,10 @@ class FTree :
             meanL = 0 if len(idsLeft) == 0 else meanL / len(idsLeft)
             meanR = 0 if len(idsRight) == 0 else meanR / len(idsRight)
             attRange = self.dataSet.maxs[a] - self.dataSet.mins[a]
-            lrd = 1- len(idsLeft)/len(idsR)
-            rrd = 1- len(idsRight)/len(idsR)
+           # lrd = 1- len(idsLeft)/len(idsR)
+            #rrd = 1- len(idsRight)/len(idsR)
+            lrd = (len(self.ids) - len(idsLeft))/(len(self.ids)) * (attRange - (v - mini) )/(attRange) #density reduction 
+            rrd = (len(self.ids) - len(idsRight))/(len(self.ids)) * (attRange - (maxi - v) )/(attRange) #density reduction 
 
          #   print("LEFT REDUCTION DEGREE nbPtParent=",len(idsR),"nbPointsLeft=",len(idsLeft),"RD=",lrd)
           #  print("RIGHT REDUCTION DEGREE nbPtParent=",len(idsR),"nbPointsRight=",len(idsRight),"RD=",rrd)
@@ -547,7 +559,8 @@ class FTree :
             # (If it is an external node)
             if method == "crisp":
                 return e #/ c(len(self.dataSet.trainingData))
-            else:                
+            else:  
+               # print("DEG",deg,"DEPTH",e)              
                 return deg #/ c(len(self.dataSet.trainingData))
         
     def aggNodeDegrees(self,curDegree :float,pointIsolation : float,nodeReduction:float,nodeSeparation:float):
@@ -558,15 +571,7 @@ class FTree :
 
         if curDegree is None: 
             curDegree = 0
-        #
-        if nodeSeparation > 1:
-            print("!!! NODE SEPARATION",nodeSeparation)
-        if nodeReduction > 1:
-            print("!!! NODE REDUCTION",nodeReduction)
-
-        if pointIsolation > 1:
-            print("!!! NODE POINT ISOLATION",pointIsolation)
-
+    
         nodeDeg = nodeSeparation*nodeReduction
         return curDegree + (1 - pointIsolation * nodeDeg)
 #        return curDegree + (1- (pointIsolation + nodeDeg - pointIsolation * nodeDeg))
@@ -592,7 +597,7 @@ if __name__ == "__main__":
     dimensions = [6, 271, 9, 21, 10, 4, 3, 32, 32, 18, 6, 166, 8, 36, 9, 3, 6]
 
     #You just have to choose the index of the dataset in the table. Example : idx_dataset = 0 <=> annthyroid
-    idx_dataset = 6
+    idx_dataset = 0
     converters = {}
     header = []
     
@@ -607,7 +612,7 @@ if __name__ == "__main__":
     #because the files do not have headers)
     d = Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
 
-#    d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
+    d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
 #    d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8) 
@@ -623,7 +628,7 @@ if __name__ == "__main__":
     #print(f)
    
     import viewer as vw
-    fig, ax = plt.subplots(2)
+    #fig, ax = plt.subplots(2)
     aTreeId =random.randint(0,f.NBTREES-1)
        
     A=0.5        
@@ -633,7 +638,7 @@ if __name__ == "__main__":
     scores = f.computeScores("crisp",)
     pC,rC,fmC, eR = f.evaluate(scores)
     auc,lr_fpr, lr_tpr = f.computeAUC(scores)
-    ax[0].plot(lr_fpr, lr_tpr, marker=',', label='Crisp')
+   # ax[0].plot(lr_fpr, lr_tpr, marker=',', label='Crisp')
 
     print("CRISP ROC AUC ",auc)
     minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
@@ -641,7 +646,7 @@ if __name__ == "__main__":
     msg = "P"+str(round(pC,1))+" R"+str(round(rC,1))+" F"+str(round(fmC,1))+" R"+str(round(eR,1))
     print(msg)
     
-    A=0.79
+    A=0.72
     print("FUZZY METHOD WITH PARAMETERS ALPHA:",A, "BETA:",beta)
     f.setAlpha(A)
     scoresF = f.computeScores("strongfuzzy")
@@ -650,12 +655,12 @@ if __name__ == "__main__":
     auc,lr_fpr, lr_tpr = f.computeAUC(scoresF)
     print("FUZZY ROC AUC ",auc)
     # plot the roc curve for the model
-    ax[1].plot(lr_fpr, lr_tpr, marker='.', label='Fuzzy')#
+  #  ax[1].plot(lr_fpr, lr_tpr, marker='.', label='Fuzzy')#
 
     print("FUZZY SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
     msg="P"+str(round(pSF,1))+" R"+str(round(rSF,1))+" F"+str(round(fmSF,1))+" E"+str(round(eRSF,1))
     print(msg)
     print("\n")
-  #  vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,None,None)
+    vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,None,None)
     plt.show()
  
