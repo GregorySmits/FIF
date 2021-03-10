@@ -235,18 +235,13 @@ class FForest:
             minP corresponds to the lowest anomaly score of irregularities
             maxP corresponds to the highest anomaly score of irregularities
             moyP is the mean of anomaly scores of irregularities
+            stdP is the standard deviation of anomaly scores of irregularities  
             minN corresponds to the lowest anomaly score of regularities
             maxN corresponds to the highest anomaly score of regularities
             moyN is the mean of anomaly scores of regularities
+            stdN is the standard deviation of anomaly scores of regularities
         """
-        minN=(math.inf)
-        maxN=-(math.inf)
-        minP=(math.inf)
-        maxP=-(math.inf)
-        moyN = 0
-        moyP = 0
-
-        n=0
+    
 
         scoresP = []
         scoresN = []
@@ -258,26 +253,7 @@ class FForest:
                 scoresP.append(deg)
             else:
                 scoresN.append(deg)
-
-        """
-                n=n+1
-                if deg < minP:
-                    minP = deg
-                if deg > maxP:
-                    maxP = deg
-                moyP = moyP + deg
-            else:
-                if deg > maxN:
-                    maxN = deg
-                if deg < minN:
-                    minN = deg
-                moyN = moyN + deg
-
-        moyP = moyP / n if n > 0 else moyP
-        moyN = moyN / (len(self.dataSet.getEvalDataSet()) -n)
-        return minP,maxP,moyP,minN,maxN,moyN
-        """
-        return 
+        return [min(scoresP),min(scoresN)],[max(scoresP),max(scoresN)],[sum(scoresP)/len(scoresP),sum(scoresN)/len(scoresN)],[np.std(scoresP),np.std(scoresN)]
 
 
     def evaluate(self, scores):
@@ -570,10 +546,10 @@ class FTree :
         #using all degrees and the probabilistic norm
 
         if curDegree is None: 
-            curDegree = 0
+            curDegree =  1
     
         nodeDeg = nodeSeparation*nodeReduction
-        return curDegree + (1 - pointIsolation * nodeDeg)
+        return curDegree * (1 - pointIsolation * nodeDeg)
 #        return curDegree + (1- (pointIsolation + nodeDeg - pointIsolation * nodeDeg))
 #first method
  #       return curDegree + (pointIsolation * nodeReduction)
@@ -641,8 +617,9 @@ if __name__ == "__main__":
    # ax[0].plot(lr_fpr, lr_tpr, marker=',', label='Crisp')
 
     print("CRISP ROC AUC ",auc)
-    minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
-    print("CRISP SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
+    minPC,maxPC,moyPC,stdPC= f.anomalyCuts(scores)
+
+    print("CRISP SEP MINS:",minPC,"MAXS:",maxPC,"MEANS:",moyPC,"STD:",stdPC)
     msg = "P"+str(round(pC,1))+" R"+str(round(rC,1))+" F"+str(round(fmC,1))+" R"+str(round(eR,1))
     print(msg)
     
@@ -651,16 +628,19 @@ if __name__ == "__main__":
     f.setAlpha(A)
     scoresF = f.computeScores("strongfuzzy")
     pSF,rSF,fmSF,eRSF = f.evaluate(scoresF)
-    minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scoresF)
+    minP,maxP,moyP,stdP= f.anomalyCuts(scoresF)
     auc,lr_fpr, lr_tpr = f.computeAUC(scoresF)
     print("FUZZY ROC AUC ",auc)
     # plot the roc curve for the model
   #  ax[1].plot(lr_fpr, lr_tpr, marker='.', label='Fuzzy')#
-
-    print("FUZZY SEP IR:",minP,maxP,moyP," R:",minN,maxN,moyN)
+    """
+    show the anomaly scores cuts
+    """
+  #  vw.displayCuts(minP+minPC,maxP+maxPC,moyP+moyPC,stdP+stdPC)
+    print("FUZZY SEP MINS:",minP,"MAXS:",maxP,"MEANS:",moyP,"STD:",stdP)
     msg="P"+str(round(pSF,1))+" R"+str(round(rSF,1))+" F"+str(round(fmSF,1))+" E"+str(round(eRSF,1))
     print(msg)
     print("\n")
-    vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,None,None)
-    plt.show()
+   # vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,None,None)
+   # plt.show()
  

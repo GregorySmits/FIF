@@ -11,6 +11,17 @@ import matplotlib.pyplot as plt
 from dataset import *
 from FIF import *
 
+
+def displayCuts(mins,maxs,means,stds):
+    """
+    Display
+    """
+    # create stacked errorbars:
+    plt.errorbar(np.arange(4), means, stds, fmt='ok', lw=3)
+    plt.errorbar(np.arange(4), means, [means - mins, maxs - means], fmt='.k', ecolor='gray', lw=1)
+    plt.xlim(-1, 3)
+    plt.show()
+
 def viewDataset(d:Dataset):
     """
     Used to plot 2D datasets
