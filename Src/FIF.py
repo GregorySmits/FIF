@@ -189,7 +189,7 @@ class FForest:
             print("ANOMALY DEGREE FOR PATH:",path)
             for a in path:
                 pointDeg = a["pointIsolation"]
-                areaDeg = min(a['nodeReduction'], a['nodeSeparation'])
+                areaDeg = (a['nodeReduction'] +  a['nodeSeparation']) /2
                 combDeg = pointDeg * areaDeg
                 deg = min(deg,   combDeg)
                 print('\t-PT ISOL DEG:',pointDeg,"AREA DEG (ND:",a['nodeReduction'],"NS:",a['nodeSeparation'],"->AD:,",areaDeg,"combDeg:",combDeg,"=",deg)
@@ -504,22 +504,25 @@ class FTree :
             meanL = 0 if len(idsLeft) == 0 else meanL / len(idsLeft)
             meanR = 0 if len(idsRight) == 0 else meanR / len(idsRight)
             attRange = self.dataSet.maxs[a] - self.dataSet.mins[a]
-         #   attRange2 = maxi - mini
             bounds = (mini,maxi)
      
             if attRange > 0:
-                #lrd = ((len(self.dataSet.trainingData) - len(idsLeft))/len(self.dataSet.trainingData) + (v - mini) /attRange)/2
+#                lrd = ((len(self.dataSet.trainingData) - len(idsLeft))/len(self.dataSet.trainingData) + (v - mini) /attRange)/2
                 lrd = min((len(self.dataSet.trainingData) - len(idsLeft))/len(self.dataSet.trainingData), (v - mini) /attRange)
-                #lrd = ((len(idsR) - len(idsLeft))/len(idsR) + (v - mini) /attRange)/2
 
             else:
                 lrd=0
-            
+                
+            lsd = self.separationDegree(attRange,v,meanR)
+            rsd = self.separationDegree(attRange,v,meanL)
+
+
             print("LEVEL:",currDepth,"ATT",a,"SEP",v)
             print("DENSITY REDUCTION DEGREE LEFT:")
             print("\t CARDINALITY |D|:",len(self.dataSet.trainingData),"|Dleft|:",len(idsLeft),"=",(len(self.dataSet.trainingData) - len(idsLeft))/(len(self.dataSet.trainingData)))
             print("\t SPACE ATT RANGE:",attRange,"SUBSPACE:",(v-mini),"=",( (v - mini) )/(attRange))
-            print("\t RES=",lrd)
+            print("\t LEFT AREA DEGREE=",lrd)
+            print("\t LEFT AREA SEP DEGREE wrt. RIGHT=",lsd)
 #            rrd = ((len(self.dataSet.trainingData) - len(idsRight))/len(self.dataSet.trainingData) + (maxi - v) /attRange)/2 #density reduction 
             rrd = min((len(self.dataSet.trainingData) - len(idsRight))/len(self.dataSet.trainingData), (maxi - v) /attRange) #density reduction 
 
@@ -528,11 +531,11 @@ class FTree :
             print("DENSITY REDUCTION DEGREE RIGHT:")
             print("\t CARDINALITY |D|:",len(self.dataSet.trainingData),"|Dright|:",len(idsRight),"=",(len(self.dataSet.trainingData) - len(idsRight))/(len(self.dataSet.trainingData)))
             print("\t SPACE ATT RANGE:",attRange,"SUBSPACE:",(maxi - v),"=",((maxi - v) )/(attRange) )
-            print("\t RES=",rrd)
+            print("\t RIGHT AREA DEGREE=",rrd)
+            print("\t RIGHT AREA SEP DEGREE wrt. LEFT=",rsd)
             print('\n')
             
-            lsd = self.separationDegree(attRange,v,meanR)
-            rsd = self.separationDegree(attRange,v,meanL)
+         
 
             return Node(idsR, currDepth, a, v, self.build(np.array(idsLeft), currDepth + 1, lrd , lsd), self.build(np.array(idsRight), currDepth + 1, rrd,rsd),rd,sd,bounds)
             
@@ -612,6 +615,7 @@ if __name__ == "__main__":
    
     import viewer as vw
     #
+    
     idds = f.trees[aTreeId].ids
  
     
