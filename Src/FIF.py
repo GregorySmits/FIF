@@ -14,7 +14,15 @@ from sklearn.metrics import roc_curve
 import copy
 EPSILONMIN=0.001
 
-    
+
+EVALAREAS=True
+COMPAREAPPROACHES=False
+EVALPOINTS=False
+
+WITHSPACE=False
+
+
+
 def c(n):
     """
     Computes the adjustment c(Size) : c(i) = ln(i) + Euler's constant
@@ -47,7 +55,7 @@ def symSum(x : float,y : float):
 
 class Node:
 
-    def __init__(self,id,d,a,v,l,r,rd=None,sd=None, bounds = None):
+    def __init__(self,id,d,a,v,l,r,rd=None,sd=None):#, bounds = None):
         """
         Creates a new Node (internal or external)
 
@@ -83,8 +91,6 @@ class Node:
         self.rightNode = r
         self.reductionDegree = rd
         self.separationDegree = sd
-        self.bounds=bounds
-        #print("NEW NODE DEPTH=",self.depth,"sepAtt=",self.sepAtt,"sepVal",self.sepVal,"reductionDegree=",self.reductionDegree,"separationDegree=",self.separationDegree)
         
     def __str__(self):
         ret= ""
@@ -174,7 +180,17 @@ class FForest:
         ns_fpr, ns_tpr, _ = roc_curve(binData, scoresSelected)
         return ruc,ns_fpr,ns_tpr
 
-    def computeAnomalyDegree(self,path, method):
+    def tfsDeg(self, deg, bs, bn):
+        """
+        Should be class method
+        memebership in open right TFS
+        """
+        ret = 0
+        if deg > bs:
+            ret = 1 if deg >= bn else (deg - bs)/(bn-bs)
+        return ret
+
+    def computeAnomalyDegree(self,path, method, cla : int =  None):
         """
         A point is an anomaly if it mostly falls far from separation line in isolated areas : high density reduction and far from points on the other side
         """
@@ -182,22 +198,37 @@ class FForest:
         if method == "crisp":
             deg = len(path)
         else:
-            wSum = 0
-            w=1
-            rank=len(path)
-            w=1/2**rank
-            print("ANOMALY DEGREE FOR PATH:",path)
+            #if EVALPOINTS or COMPAREAPPROACHES:
+                #print("ANOMALY DEGREE FOR PATH:",path)
+            degsInPath=[]
+           
             for a in path:
-                pointDeg = a["pointIsolation"]
-                areaDeg = (a['nodeReduction'] +  a['nodeSeparation']) /2
-                combDeg = pointDeg * areaDeg
-                deg = min(deg,   combDeg)
-                print('\t-PT ISOL DEG:',pointDeg,"AREA DEG (ND:",a['nodeReduction'],"NS:",a['nodeSeparation'],"->AD:,",areaDeg,"combDeg:",combDeg,"=",deg)
-            #deg = deg/rank
-            print("DEG FINAL =",deg)
+                pointDeg = max(a["pointIsolation"], a['nodeSeparation'])
+                areaDeg = a['nodeReduction']# + a['nodeSeparation'])/2
+                if areaDeg > 0:
+                    combDeg = min(pointDeg , areaDeg)
+                    #modDeg = combDeg
+                    modDeg = self.tfsDeg(combDeg,0.1,0.35)
+                    degsInPath.append(combDeg)
+                    #degsInPath.append(combDeg)
+                 ###   if (EVALPOINTS or COMPAREAPPROACHES) and cla == 1:
+                  ###      print('\t-PT ISOL DEG: ',a["pointIsolation"],"AREA ISOL DEG:",a['nodeSeparation']," _ AREA RED:",a['nodeReduction']," => ",combDeg," : ", modDeg)
+
+            #deg = max(degsInPath)
+           
+            #deg = self.most(degsInPath)
+            #deg = sum(degsInPath)/len(path)
+            meanIsInfo =sum(degsInPath)/len(path)
+            deg = self.tfsDeg(meanIsInfo,0.2,0.5)#ARE MOST OF THE SPLITS INTERESTING ENOUGH?
+            ###if cla == 1:
+             ###   print("\t-FINAL POINT DEGREE: ", deg)
+##            print('\t-PT MOSTLY ISOLATED:',deg)
+        #if COMPAREAPPROACHES and method =="strongfuzzy":
+         #   print("CRISP : ",len(path)," -- FUZZY DEGREE : ",deg)
+            #print("POINT ISOLATION DEGREE CRISP:",len(path),"FUZZY:",deg)
         return deg
 
-    def computeScore(self, x, method : str,treeId : int = None):
+    def computeScore(self, x, method : str,treeId : int = None, cla : int =  None):
         """
         Computes the anomaly scores of a single data point
         using the degrees attached to points in the leaf
@@ -222,19 +253,19 @@ class FForest:
             allPaths=[]
             self.trees[i].pathLength(x, self.trees[i].root,0, [], allPaths, method)
             if method == "strongfuzzy":
-                maxAs = -math.inf
+                maxAs = math.inf
+                
+                allPathDegs = []
                 for path in allPaths:
-                    ad = self.computeAnomalyDegree(path, method)
-                    if ad > maxAs:
-                        maxAs = ad
+                    allPathDegs.append(self.computeAnomalyDegree(path, method,cla))
+                maxAs = sum(allPathDegs) / len(allPathDegs)#mean on all paths
             if method == "crisp":
                 maxAs = len(allPaths[0])
             hx=hx+maxAs
 
         hx = hx / len(rng)
 
-        if method == "crisp":
-            
+        if method == "crisp":        
             hx = self.normalizeAnomalyScore(hx)
         
         return hx
@@ -262,16 +293,19 @@ class FForest:
 
         res = np.zeros(len(self.dataSet.getData()))
         for x in self.dataSet.getEvalDataSet():
-            print("POINT :",self.dataSet.getData(x))
+           
             pt = self.dataSet.getData(x)
             classO = int(pt[len(pt)-1])
-            res[x] = self.computeScore(self.dataSet.getData(x),method, treeId)
+            ###print("POINT :",self.dataSet.getData(x))
+            res[x] = self.computeScore(self.dataSet.getData(x),method, treeId, classO)
             deg = res[x]
-            if classO == 1:
-                print("\t\tANOMALY DEG=%.4f"%deg)
-            else:
-                print("REGULAR DEG=%.4f"%deg)
-            print("**************************************")
+            ###if classO == 0:
+                #print("REGULAR DEG=%.4f"%deg)
+                ###print("\t\tANOMALY DEG=%.4f"%deg)
+#            else:
+ #               print("REGULAR DEG=%.4f"%deg)
+            
+            ###print("**************************************")
         return res
 
     def anomalyCuts(self, scores):
@@ -366,7 +400,7 @@ class FTree :
         self.dataSet = d
         self.ids = ids
         self.MAXHEIGHT = math.ceil(math.log(len(ids),2))
-        self.root = self.build(self.ids, 0)
+        self.root = self.build(self.ids, 0,None,None,self.dataSet.mins,self.dataSet.maxs)
         
     
         
@@ -396,10 +430,10 @@ class FTree :
         -------
         (Float,Float) : the membership degree in the two subsets
         """
-        
         ret = (0.0,0.0)
-        #attRange = self.dataSet.maxs[node.sepAtt] - self.dataSet.mins[node.sepAtt]
-        attRange = node.bounds[1] - node.bounds[0]
+        attRange = self.dataSet.maxs[node.sepAtt] - self.dataSet.mins[node.sepAtt]
+        #attRange2 = node.bounds[1] - node.bounds[0]
+       
         v = point[node.sepAtt]
         sep = node.sepVal
         
@@ -407,11 +441,10 @@ class FTree :
             r = attRange * self.forest.BETA / 2
             if v < sep + r:
                 rl = 1.0 if v <= sep - r else (sep+r-v)/ (2*r)
-                rg = 1 - rl
+                rg = 1.0 - rl
                 ret = (rl,rg)
             else:
                 ret = (0.0,1.0)
-       
         return ret
 
 
@@ -452,7 +485,7 @@ class FTree :
         return ret
 
 
-    def build(self, idsR, currDepth, rd=None,sd=None):
+    def build(self, idsR, currDepth:int, rd=None,sd=None, minis=None, maxis = None):
         """
         Builds the tree
 
@@ -476,9 +509,10 @@ class FTree :
         attributes = self.dataSet.getAttributes()
         
         if len(idsR) <= 1 or currDepth >= self.MAXHEIGHT:
-            return Node(idsR, currDepth, None, None, None,None, rd,sd,None)
+            return Node(idsR, currDepth, None, None, None,None, rd,sd)
         else:
             a = random.randint(0, len(attributes)-1)
+               
             mini = math.inf
             maxi = (-math.inf)
             for ix in idsR:#get the max and min values of the points in ix
@@ -493,6 +527,7 @@ class FTree :
             meanL=0
             meanR=0
 
+            #assign the points to the left (resp. right) node
             for ix in idsR:
                 if self.dataSet.getData(ix)[a] <= v:
                     idsLeft.append(ix)
@@ -501,43 +536,65 @@ class FTree :
                     idsRight.append(ix)
                     meanR=meanR+self.dataSet.getData(ix)[a]
 
+            #mean value on the concerned attribute a of the points assigned to the left node (meanL)
+            #or to the right node (meanR)
             meanL = 0 if len(idsLeft) == 0 else meanL / len(idsLeft)
             meanR = 0 if len(idsRight) == 0 else meanR / len(idsRight)
-            attRange = self.dataSet.maxs[a] - self.dataSet.mins[a]
-            bounds = (mini,maxi)
-     
-            if attRange > 0:
-#                lrd = ((len(self.dataSet.trainingData) - len(idsLeft))/len(self.dataSet.trainingData) + (v - mini) /attRange)/2
-                lrd = min((len(self.dataSet.trainingData) - len(idsLeft))/len(self.dataSet.trainingData), (v - mini) /attRange)
 
-            else:
-                lrd=0
-                
+            #domain of att a min and max of x.a
+            attRange = self.dataSet.maxs[a] - self.dataSet.mins[a]
+            lrd = 0
+            rrd = 0
+        
+            if attRange > 0:
+                #Reduction ratio
+                #0 if there is an equal number of points on both sides of the separation
+                #else T(cardinalityReduction, spaceReduction)
+                # cardinalityReduction = nbPoint other side / nbpoint to separate 
+                # spaceReduction = range of the subspace / range of the attribute 
+                if len(idsLeft) != len(idsRight):
+                    #nbPoints = len(self.dataSet.getTrainingDataSet())#len(idsR)
+                    #rrd = (len(idsLeft)/nbPoints + ((maxis[a] - v) /attRange)) / 2
+                    #rd = (len(idsRight)/nbPoints  + ((v - minis[a]) /attRange) ) /2
+                    #rrd = min(len(idsLeft)/len(idsR), ((maxis[a] - v) /attRange)) 
+                    #lrd = min(len(idsRight)/len(idsR), ((v - minis[a]) /attRange) )
+                    rrd = len(idsLeft)/len(idsR)
+                    lrd = len(idsRight)/len(idsR)
+
+            #area separation degree
+            # #how far is the mean value of the points on the other side of v                
             lsd = self.separationDegree(attRange,v,meanR)
             rsd = self.separationDegree(attRange,v,meanL)
+           
+            if EVALAREAS:
+                print("LEVEL:",currDepth,"ATT",a,"SEP",v)
+                print("LEFT NODE:")
+                print("\t-CARD=",len(idsRight),"/",len(idsR),"=",(len(idsRight)/len(idsR)))
+                print("\t-RANGE=",(v - minis[a]),"/",attRange,"=",((v - minis[a]) /attRange))
+                print("\t\t REDUCTION DEGREE = ",lrd)
+                print("\t-RIGHT POINTS MEAN VALUE=",meanR)
+                print("\t\t SEPARATION DEGREE = ",lsd)
+                print("\t *** LEFT AREA DEGREE ",min(lrd,lsd),"***")
+
+                print("RIGHT NODE:")
+                print("\t-CARD=",len(idsLeft),"/",len(idsR),"=",(len(idsLeft)/len(idsR)))
+                print("\t-RANGE=",(maxis[a] - v),"/",attRange,"=",((maxis[a] - v) /attRange))
+                print("\t\t REDUCTION DEGREE = ",rrd)
+                print("\t-RIGHT POINTS MEAN VALUE=",meanL)
+                print("\t\t SEPARATION DEGREE = ",rsd)
+                print("\t *** LEFT AREA DEGREE ",min(rrd,rsd),"***")
+                print('\n')
 
 
-            print("LEVEL:",currDepth,"ATT",a,"SEP",v)
-            print("DENSITY REDUCTION DEGREE LEFT:")
-            print("\t CARDINALITY |D|:",len(self.dataSet.trainingData),"|Dleft|:",len(idsLeft),"=",(len(self.dataSet.trainingData) - len(idsLeft))/(len(self.dataSet.trainingData)))
-            print("\t SPACE ATT RANGE:",attRange,"SUBSPACE:",(v-mini),"=",( (v - mini) )/(attRange))
-            print("\t LEFT AREA DEGREE=",lrd)
-            print("\t LEFT AREA SEP DEGREE wrt. RIGHT=",lsd)
-#            rrd = ((len(self.dataSet.trainingData) - len(idsRight))/len(self.dataSet.trainingData) + (maxi - v) /attRange)/2 #density reduction 
-            rrd = min((len(self.dataSet.trainingData) - len(idsRight))/len(self.dataSet.trainingData), (maxi - v) /attRange) #density reduction 
+            #for right node
+            minisC = copy.deepcopy(minis)
+            minisC[a] = v 
+            #For left node
+            maxisC = copy.deepcopy(maxis)
+            maxisC[a] = v 
 
-            #rrd = ((len(idsR) - len(idsRight))/len(idsR) + (maxi - v) /attRange)/2 #density reduction 
-
-            print("DENSITY REDUCTION DEGREE RIGHT:")
-            print("\t CARDINALITY |D|:",len(self.dataSet.trainingData),"|Dright|:",len(idsRight),"=",(len(self.dataSet.trainingData) - len(idsRight))/(len(self.dataSet.trainingData)))
-            print("\t SPACE ATT RANGE:",attRange,"SUBSPACE:",(maxi - v),"=",((maxi - v) )/(attRange) )
-            print("\t RIGHT AREA DEGREE=",rrd)
-            print("\t RIGHT AREA SEP DEGREE wrt. LEFT=",rsd)
-            print('\n')
-            
-         
-
-            return Node(idsR, currDepth, a, v, self.build(np.array(idsLeft), currDepth + 1, lrd , lsd), self.build(np.array(idsRight), currDepth + 1, rrd,rsd),rd,sd,bounds)
+            # def __init__(self,id,d,a,v,l,r,rd=None,sd=None)
+            return Node(idsR, currDepth, a, v, self.build(np.array(idsLeft), currDepth + 1, lrd , lsd,minis,maxisC), self.build(np.array(idsRight), currDepth + 1, rrd,rsd,minisC,maxis),rd,sd)
             
   
     def pathLength(self, point, node,e, curPath, allPaths, method):
@@ -594,20 +651,21 @@ if __name__ == "__main__":
         header.append(str(i))
     converters[dimensions[idx_dataset]] = lambda s: int(float(s.strip() or 0))
     header.append("CLASS")
-#    d = Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
+    d = Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
 
     d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
-#    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
+    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
 #    d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8) 
-    d = Dataset("../Data/dataTest.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0)
+#   d = Dataset("../Data/dataTest.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0)
 
     e = d.getEvalDataSet()
 
 
 #    f = Forest(d, "strongfuzzy",0.84,0.05)
-    beta=0.2
-    nbT=1
+    
+    nbT=10
+    beta=0.1
     f = FForest(d,beta,nbT)
 
     f.build()
@@ -618,82 +676,93 @@ if __name__ == "__main__":
     
     idds = f.trees[aTreeId].ids
  
-    
-    td = np.empty([len(e),3])
-    for i in range(len(e)):
-        td[i] = f.dataSet.getData(e[i])
-    vw.viewData(td)
-    vw.drawTreeRec(f.trees[aTreeId].root,d )
-    plt.show()
-    sys.exit(0)
-    
-
-    for pte in e:
-        allPaths=[]
-        pt = f.dataSet.getData(pte)
-        f.trees[aTreeId].pathLength(pt, f.trees[aTreeId].root,0, [], allPaths, "strongfuzzy")
-        print("POINT ",pt)
-        f.computeScore(pt,"strongfuzzy",aTreeId)
-        print("\n************\n")
-
-    #
-    VIEW=True
-   
-    if VIEW:
-        fig, ax = plt.subplots(2,3)
-       
- 
-    
-    A=0.5
-    print("CRISP METHOD WITH PARAMETERS ALPHA:",A)
-    f.setAlpha(A)
-    f.setBeta(0)
-        
-    scores = f.computeScores("crisp")
-   
-   
-    pC,rC,fmC, eR = f.evaluate(scores)
-    print("\tPRECISION:",round(pC,3),"RAPPEL:",round(rC,3),"FMEASURE:",round(fmC,3),"ERRORRATE:",round(eR,3))
-    if VIEW:
-        vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scores,f.ALPHA,e,ax[0][0],"IT")
-
-    auc,lr_fpr, lr_tpr = f.computeAUC(scores)
-    print("\tAUC:",round(auc,3))
-    if VIEW:
-        vw.displayAUC(lr_fpr,lr_tpr,"Crisp",ax[0][1])
-
-    minPC,maxPC,moyPC,stdPC= f.anomalyCuts(scores)
-    if VIEW:
-        vw.displayCuts(minPC,maxPC,moyPC,stdPC,ax[0][2])
-
-    print("\tANOMALY SCORES:")
-    print("\t\tIRREGULARITIES MIN:,",round(minPC[0],3),"MAX:",round(maxPC[0],3),"MEAN:",round(moyPC[0],3),"STD:",round(stdPC[0],3))
-    print("\t\tREGULARITIES MIN:,",round(minPC[1],3),"MAX:",round(maxPC[1],3),"MEAN:",round(moyPC[1],3),"STD:",round(stdPC[1],3))
-    
-    A=0.9
-    f.setBeta(beta)
-
-    print("***********\n***********")
-    print("FUZZY METHOD WITH PARAMETERS ALPHA:",A, "BETA:",beta)
-    f.setAlpha(A)
-    scoresF = f.computeScores("strongfuzzy")
-
-    
-    pSF,rSF,fmSF,eRSF = f.evaluate(scoresF)
-    print("\tPRECISION:",round(pSF,3),"RAPPEL:",round(rSF,3),"FMEASURE:",round(fmSF,3),"ERRORRATE:",round(eRSF,3))
-
-    auc,lr_fpr, lr_tpr = f.computeAUC(scoresF)
-    print("\tAUC:",round(auc,3))
-    if VIEW:
-        vw.displayAUC(lr_fpr,lr_tpr,"Fuzzy",ax[1][1])
-
-    minP,maxP,moyP,stdP= f.anomalyCuts(scoresF)
-    if VIEW:
-        vw.displayCuts(minP,maxP,moyP,stdP,ax[1][2])
-    print("\tANOMALY SCORES:")
-    print("\t\tIRREGULARITIES MIN:,",round(minP[0],3),"MAX:",round(maxP[0],3),"MEAN:",round(moyP[0],3),"STD:",round(stdP[0],3))
-    print("\t\tREGULARITIES MIN:,",round(minP[1],3),"MAX:",round(maxP[1],3),"MEAN:",round(moyP[1],3),"STD:",round(stdP[1],3))
-    if VIEW:
-        vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,ax[1][0],"FIT")
+    if EVALAREAS:
+        td = np.empty([len(e),3])
+        for i in range(len(e)):
+            td[i] = f.dataSet.getData(e[i])
+        fig, ax = plt.subplots()
+        vw.drawTreeRec(f.trees[aTreeId].root,d,ax )
+        vw.viewData(td,ax)
         plt.show()
- 
+        sys.exit(0)
+    
+    if EVALPOINTS:
+
+        for pte in e:
+            allPaths=[]
+            pt = f.dataSet.getData(pte)
+            f.trees[aTreeId].pathLength(pt, f.trees[aTreeId].root,0, [], allPaths, "strongfuzzy")
+            print("POINT ",pt)
+            f.computeScore(pt,"strongfuzzy",aTreeId)
+            print("\n************\n")
+        td = np.empty([len(e),3])
+        for i in range(len(e)):
+            td[i] = f.dataSet.getData(e[i])
+        fig, ax = plt.subplots()
+        vw.viewData(td,ax)
+        vw.drawTreeRec(f.trees[aTreeId].root,d,ax)
+
+        plt.show()
+        sys.exit(0)
+
+
+    if COMPAREAPPROACHES:
+        VIEW=True
+        if VIEW:
+            fig, ax = plt.subplots(2,3)
+           
+        A=0.5
+        beta=0
+        print("CRISP METHOD WITH PARAMETERS ALPHA:",A)
+        f.setAlpha(A)
+        f.setBeta(beta)
+            
+        scores = f.computeScores("crisp")
+    
+    
+        pC,rC,fmC, eR = f.evaluate(scores)
+        print("\tPRECISION:",round(pC,3),"RAPPEL:",round(rC,3),"FMEASURE:",round(fmC,3),"ERRORRATE:",round(eR,3))
+        if VIEW:
+            vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scores,f.ALPHA,e,ax[0][0],"IT")
+
+        auc,lr_fpr, lr_tpr = f.computeAUC(scores)
+        print("\tAUC:",round(auc,3))
+        if VIEW:
+            vw.displayAUC(lr_fpr,lr_tpr,"Crisp",ax[0][1])
+
+        minPC,maxPC,moyPC,stdPC= f.anomalyCuts(scores)
+        if VIEW:
+            vw.displayCuts(minPC,maxPC,moyPC,stdPC,ax[0][2])
+
+        print("\tANOMALY SCORES:")
+        print("\t\tIRREGULARITIES MIN:,",round(minPC[0],3),"MAX:",round(maxPC[0],3),"MEAN:",round(moyPC[0],3),"STD:",round(stdPC[0],3))
+        print("\t\tREGULARITIES MIN:,",round(minPC[1],3),"MAX:",round(maxPC[1],3),"MEAN:",round(moyPC[1],3),"STD:",round(stdPC[1],3))
+        
+        A=0.5
+        beta=0.1
+        f.setBeta(beta)
+
+        print("***********\n***********")
+        print("FUZZY METHOD WITH PARAMETERS ALPHA:",A, "BETA:",beta)
+        f.setAlpha(A)
+        scoresF = f.computeScores("strongfuzzy")
+
+        
+        pSF,rSF,fmSF,eRSF = f.evaluate(scoresF)
+        print("\tPRECISION:",round(pSF,3),"RAPPEL:",round(rSF,3),"FMEASURE:",round(fmSF,3),"ERRORRATE:",round(eRSF,3))
+
+        auc,lr_fpr, lr_tpr = f.computeAUC(scoresF)
+        print("\tAUC:",round(auc,3))
+        if VIEW:
+            vw.displayAUC(lr_fpr,lr_tpr,"Fuzzy",ax[1][1])
+
+        minP,maxP,moyP,stdP= f.anomalyCuts(scoresF)
+        if VIEW:
+            vw.displayCuts(minP,maxP,moyP,stdP,ax[1][2])
+        print("\tANOMALY SCORES:")
+        print("\t\tIRREGULARITIES MIN:,",round(minP[0],3),"MAX:",round(maxP[0],3),"MEAN:",round(moyP[0],3),"STD:",round(stdP[0],3))
+        print("\t\tREGULARITIES MIN:,",round(minP[1],3),"MAX:",round(maxP[1],3),"MEAN:",round(moyP[1],3),"STD:",round(stdP[1],3))
+        if VIEW:
+            vw.viewIsolatedDatasetWithAnomalies(d,f.trees[aTreeId],scoresF,f.ALPHA,e,ax[1][0],"FIT")
+            plt.show()
+    

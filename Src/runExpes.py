@@ -35,10 +35,10 @@ for i in range(dimensions[idx_dataset]):
 converters[dimensions[idx_dataset]] = lambda s: int(float(s.strip() or 0))
 header.append("CLASS")
 
-d = dt.Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
+#d = dt.Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
 
 #d = dt.Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0) 
-#d = dt.Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
+d = dt.Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
 #d = dt.Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #d = dt.Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 
@@ -47,11 +47,11 @@ d = dt.Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters,
 Generate a 100 trees forest and compare the result of the crisp ensemble-based method of IF and
  an individual strongfuzzy interpretation of each tree
 """
-beta=0.05
+beta=0.1
 NBRUN=10
 
 nbT=10
-nbTMax=100
+nbTMax=50
 moyC={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10),'AUC':([0]*10)}
 moySF={'P':([0]*10),'R':([0]*10),'F':([0]*10),'E':([0]*10),'AUC':([0]*10)}
 
@@ -60,14 +60,14 @@ precC, precF, recC, recF, fC, fF, eC, eF, tC, tF, aC, aF = [] , [], [], [], [], 
 while nbT <= nbTMax: 
     meanTimeC=0    
     meanTimeSF=0    
-    cutsC={'minP':0,'maxP':0,'moyP':0,'minN':0,'maxN':0,'moyN':0}
-    cutsF={'minP':0,'maxP':0,'moyP':0,'minN':0,'maxN':0,'moyN':0}
+    cutsC={'minP':0,'maxP':0,'moyP':0,'stdP':0,'minN':0,'maxN':0,'moyN':0,'stdN':0}
+    cutsF={'minP':0,'maxP':0,'moyP':0,'stdP':0,'minN':0,'maxN':0,'moyN':0,'stdN':0}
     for R in range(NBRUN):
         f = fif.FForest(d,beta,nbT)
         f.build()
         ##IF
         t_beg = time.time()
-        f.setAlpha(0.5)
+        f.setAlpha(0.55)
         scores = f.computeScores("crisp")
         pC,rC,fmC, eC = f.evaluate(scores)
         aucC,fpr,tpr = f.computeAUC(scores)
@@ -76,13 +76,15 @@ while nbT <= nbTMax:
 
         moyC['AUC'][R] = moyC['AUC'][R] + aucC
         t_end = time.time()
-        minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
-        cutsC['minP']=cutsC['minP']+minP
-        cutsC['maxP']=cutsC['maxP']+maxP
-        cutsC['moyP']=cutsC['moyP']+moyP
-        cutsC['minN']=cutsC['minN']+minN
-        cutsC['maxN']=cutsC['maxN']+maxN
-        cutsC['moyN']=cutsC['moyN']+moyN
+        minP,maxP,moyP,stdP= f.anomalyCuts(scores)
+        cutsC['minP']=cutsC['minP']+minP[0]
+        cutsC['maxP']=cutsC['maxP']+maxP[0]
+        cutsC['moyP']=cutsC['moyP']+moyP[0]
+        cutsC['stdP']=cutsC['stdP']+stdP[0]
+        cutsC['minN']=cutsC['minN']+minP[1]
+        cutsC['maxN']=cutsC['maxN']+maxP[1]
+        cutsC['moyN']=cutsC['moyN']+moyP[1]
+        cutsC['stdN']=cutsC['stdN']+stdP[1]
 
         meanTimeC =meanTimeC + round(t_end-t_beg, 3)
 
@@ -94,20 +96,23 @@ while nbT <= nbTMax:
 
         ##FIF
         t_beg = time.time()
-        f.setAlpha(0.7)
+        f.setAlpha(0.55)
         scores = f.computeScores("strongfuzzy")
         aucF,fpr,tpr = f.computeAUC(scores)
         print("FUZZY AUC",aucF)
         moySF['AUC'][R] = moySF['AUC'][R] + aucF
         pC,rC,fmC, eC = f.evaluate(scores)
         t_end = time.time()
-        minP,maxP,moyP,minN,maxN,moyN= f.anomalyCuts(scores)
-        cutsF['minP']=cutsF['minP']+minP
-        cutsF['maxP']=cutsF['maxP']+maxP
-        cutsF['moyP']=cutsF['moyP']+moyP
-        cutsF['minN']=cutsF['minN']+minN
-        cutsF['maxN']=cutsF['maxN']+maxN
-        cutsF['moyN']=cutsF['moyN']+moyN
+        minP,maxP,moyP,stdP= f.anomalyCuts(scores)
+        cutsF['minP']=cutsF['minP']+minP[0]
+        cutsF['maxP']=cutsF['maxP']+maxP[0]
+        cutsF['moyP']=cutsF['moyP']+moyP[0]
+        cutsF['stdP']=cutsF['stdP']+stdP[0]
+        cutsF['minN']=cutsF['minN']+minP[1]
+        cutsF['maxN']=cutsF['maxN']+maxP[1]
+        cutsF['moyN']=cutsF['moyN']+moyP[1]
+        cutsF['stdN']=cutsF['stdN']+stdP[1]
+
         meanTimeSF =meanTimeSF + round(t_end-t_beg, 3)
         #print("Fuzzy evaluation completed = %ss"%round(t_end-t_beg, 3))
 
@@ -125,10 +130,10 @@ while nbT <= nbTMax:
 
     print("CRISP evaluation completed in average in = ",meanTimeC)
     #print("CRISP[NBTREE="+str(nbT)+"]",moyC)
-    print("CRISP SEP IR:",cutsC['minP'],cutsC['maxP'],cutsC['moyP']," R:",cutsC['minN'],cutsC['maxN'],cutsC['moyN'])
+    print("CRISP SEP IR:",cutsC['minP'],cutsC['maxP'],cutsC['moyP'],cutsC['stdP']," R:",cutsC['minN'],cutsC['maxN'],cutsC['moyN'],cutsC['stdN'])
     print("FUZZY evaluation completed in average in = ",meanTimeSF)
     #print("FUZZY[NBTREE="+str(nbT)+"]",moySF)
-    print("FUZZY SEP IR:",cutsF['minP'],cutsF['maxP'],cutsF['moyP']," R:",cutsF['minN'],cutsF['maxN'],cutsF['moyN'])
+    print("FUZZY SEP IR:",cutsF['minP'],cutsF['maxP'],cutsF['moyP'],cutsF['stdP']," R:",cutsF['minN'],cutsF['maxN'],cutsF['moyN'],cutsF['stdN'])
     print("---------------------------------")
 
     nbT=nbT+10

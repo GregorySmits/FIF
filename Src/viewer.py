@@ -10,17 +10,28 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from dataset import *
 from FIF import *
+import matplotlib.patches as patches
 
+def displayAUC(lr_fpr,lr_tpr,msg,pl=plt):
+    pl.plot(lr_fpr, lr_tpr, marker=',', label=msg)
 
-def displayCuts(mins,maxs,means,stds):
+def displayCuts(mins,maxs,means,stds,pl=plt):
     """
     Display
     """
     # create stacked errorbars:
-    plt.errorbar(np.arange(4), means, stds, fmt='ok', lw=3)
-    plt.errorbar(np.arange(4), means, [means - mins, maxs - means], fmt='.k', ecolor='gray', lw=1)
-    plt.xlim(-1, 3)
-    plt.show()
+ 
+
+    pl.errorbar(np.arange(len(mins)), means, stds, fmt='ok', lw=3)
+    diffsMin=means
+    diffsMax=maxs
+    for i in range(len(means)):
+        diffsMin[i] = diffsMin[i] - mins[i]
+        diffsMax[i] = diffsMax[i] - means[i]
+ 
+    #pl.errorbar(np.arange(len(mins)), means, [diffsMin, diffsMax], fmt='.k', ecolor='gray', lw=1)
+   # plt.xlim(-1, len(mins)+2)
+    
 
 def viewDataset(d:Dataset):
     """
@@ -34,7 +45,20 @@ def viewDataset(d:Dataset):
     y=list(d.data[:,1])
         
     plt.scatter(x,y)
-    plt.show()
+  
+
+def viewData(d:np.ndarray, p = None):
+    """
+    Used to plot 2D datasets
+    Parameters:
+    -----------
+    d : np.ndarray
+        an array of data
+    """
+    pp = plt if p is None else p
+    x=list(d[:,0])
+    y=list(d[:,1])
+    p.scatter(x,y)
 
 def viewDatasetWithAnomalies(d:Dataset,scores:np.ndarray,ALPHA:float, filters : np.ndarray =None):
     """
@@ -57,10 +81,10 @@ def viewDatasetWithAnomalies(d:Dataset,scores:np.ndarray,ALPHA:float, filters : 
                 plt.plot([d.data[pi][0]],[d.data[pi][1]],'ro')
             else:
                 plt.plot([d.data[pi][0]],[d.data[pi][1]],'bo',alpha=scores[pi])
-    plt.show()
+    
 
 
-def viewIsolatedDatasetWithAnomalies(d:Dataset,tree:FTree,scores:np.ndarray,ALPHA:float, filters: np.ndarray =None, subplt = None,msg:str=None):
+def viewIsolatedDatasetWithAnomalies(d:Dataset,tree:FTree,scores:np.ndarray,ALPHA:float, filters: np.ndarray =None, pp = plt,msg:str=None):
     """
     Used to plot 2D datasets
     scores is a 1D array of anomaly scores
@@ -77,9 +101,7 @@ def viewIsolatedDatasetWithAnomalies(d:Dataset,tree:FTree,scores:np.ndarray,ALPH
     filters : np.ndarray
         the ids of the points to display (None means all points are displayed)
     """
-    pp = plt
-    if subplt is not None:
-        pp = subplt
+  
     for pi in range(len(d.data)):
         if filters is None or pi in filters:
             if ALPHA != 0 and scores[pi] >= ALPHA:
@@ -92,22 +114,15 @@ def viewIsolatedDatasetWithAnomalies(d:Dataset,tree:FTree,scores:np.ndarray,ALPH
     
 
 def getColor4Degree(de:float):
-    color='b'
+    colors=['black','black','dimgray','dimgray','gray','gray','darkgray','darkgray','silver','silver']
+   
     if de is None:
         de = 0
-    if de > 0.9:
-        color= 'k'
-    else:
-        if de > 0.7:
-            color= 'r'
-        else:
-            if de > 0.5:
-                color= 'm'
-            else:
-                if de > 0.3:
-                    color= 'y'
-    return color
-                
+    i = 0
+    while i < len(colors) -1 and 1 - i * 0.1 > de :
+        i=i+1
+    print
+    return colors[i]
 
 def drawTreeRec(nd:Node,d : Dataset, pl = None):
     """
@@ -123,27 +138,29 @@ def drawTreeRec(nd:Node,d : Dataset, pl = None):
     pp = plt
     if pl is not None:
         pp= pl
+    #  pp.add_patch(Rectangle((nd.sepVal, miniY), maxiY-miniY , maxiX-miniX))
 
     if nd is not None and nd.sepAtt is not None:
-        if nd.sepAtt == 0:
-            mini = math.inf
-            maxi = (-math.inf)
-            for id in nd.ids:
-                if d.data[id][1] > maxi:
-                    maxi = d.data[id][1]
-                if d.data[id][1] < mini:
-                    mini = d.data[id][1]
-                pp.plot([nd.sepVal, nd.sepVal], [mini, maxi],color=getColor4Degree(max(nd.leftNode.reductionDegree,nd.rightNode.reductionDegree)),alpha=max(nd.rightNode.reductionDegree,nd.leftNode.reductionDegree))
-        else:
-            mini = math.inf
-            maxi = (-math.inf)
-            for id in nd.ids:
-                if d.data[id][0] > maxi:
-                    maxi = d.data[id][0]
-                if d.data[id][0] < mini:
-                    mini = d.data[id][0]
+        miniX = math.inf
+        maxiX = (-math.inf)
+        miniY = math.inf
+        maxiY = (-math.inf)
+        for id in nd.ids:
+            if d.data[id][1] > maxiY:
+                maxiY = d.data[id][1]
+            if d.data[id][1] < miniY:
+                miniY = d.data[id][1]
+            if d.data[id][0] > maxiX:
+                maxiX = d.data[id][0]
+            if d.data[id][0] < miniX:
+                miniX = d.data[id][0]
 
-            pp.plot([mini,maxi], [nd.sepVal,nd.sepVal],color=getColor4Degree(max(nd.leftNode.reductionDegree,nd.rightNode.reductionDegree)),alpha=max(nd.rightNode.reductionDegree,nd.leftNode.reductionDegree))
+        if nd.sepAtt == 0:
+             #   pp.add_patch(patches.Rectangle((nd.sepVal, miniY) , maxiX-miniX, maxiY-miniY,edgecolor='r',color=getColor4Degree(nd.anomalyAreaDegree)))
+                pp.plot([nd.sepVal, nd.sepVal], [miniY, maxiY],color='black',alpha=max(nd.leftNode.reductionDegree,nd.rightNode.reductionDegree ))#,color=getColor4Degree(max(nd.leftNode.reductionDegree,nd.rightNode.reductionDegree)) )#,alpha=max(nd.rightNode.reductionDegree,nd.leftNode.reductionDegree))
+        else:
+           # pp.add_patch(patches.Rectangle((nd.sepVal, miniY), maxiY-miniY , maxiX-miniX,edgecolor='r',color=getColor4Degree(nd.anomalyAreaDegree)))
+            pp.plot([miniX,maxiX], [nd.sepVal,nd.sepVal],color='black',alpha=max(nd.leftNode.reductionDegree,nd.rightNode.reductionDegree ))#,color=getColor4Degree(max(nd.leftNode.reductionDegree,nd.rightNode.reductionDegree)) )#,alpha=max(nd.rightNode.reductionDegree,nd.leftNode.reductionDegree))
         drawTreeRec(nd.leftNode,d,pp)
         drawTreeRec(nd.rightNode,d,pp)
     
