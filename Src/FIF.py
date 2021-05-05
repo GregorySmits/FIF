@@ -207,9 +207,9 @@ class FForest:
                 areaDeg = a['nodeReduction']# + a['nodeSeparation'])/2
                 if areaDeg > 0:
                     combDeg = min(pointDeg , areaDeg)
-                    #modDeg = combDeg
-                    modDeg = self.tfsDeg(combDeg,0.1,0.35)
-                    degsInPath.append(combDeg)
+                    modDeg = combDeg
+                    #modDeg = self.tfsDeg(combDeg,0.1,0.35)
+                    degsInPath.append(modDeg)
                     #degsInPath.append(combDeg)
                  ###   if (EVALPOINTS or COMPAREAPPROACHES) and cla == 1:
                   ###      print('\t-PT ISOL DEG: ',a["pointIsolation"],"AREA ISOL DEG:",a['nodeSeparation']," _ AREA RED:",a['nodeReduction']," => ",combDeg," : ", modDeg)
@@ -217,9 +217,9 @@ class FForest:
             #deg = max(degsInPath)
            
             #deg = self.most(degsInPath)
-            #deg = sum(degsInPath)/len(path)
-            meanIsInfo =sum(degsInPath)/len(path)
-            deg = self.tfsDeg(meanIsInfo,0.2,0.5)#ARE MOST OF THE SPLITS INTERESTING ENOUGH?
+            deg = sum(degsInPath)/len(path)
+            #meanIsInfo =sum(degsInPath)/len(path)
+            #deg = self.tfsDeg(meanIsInfo,0.2,0.5)#ARE MOST OF THE SPLITS INTERESTING ENOUGH?
             ###if cla == 1:
              ###   print("\t-FINAL POINT DEGREE: ", deg)
 ##            print('\t-PT MOSTLY ISOLATED:',deg)
@@ -508,7 +508,7 @@ class FTree :
         """
         attributes = self.dataSet.getAttributes()
         
-        if len(idsR) <= 1 or currDepth >= self.MAXHEIGHT:
+        if len(idsR) <= 1:# or currDepth >= self.MAXHEIGHT:
             return Node(idsR, currDepth, None, None, None,None, rd,sd)
         else:
             a = random.randint(0, len(attributes)-1)
@@ -554,10 +554,10 @@ class FTree :
                 # spaceReduction = range of the subspace / range of the attribute 
                 if len(idsLeft) != len(idsRight):
                     #nbPoints = len(self.dataSet.getTrainingDataSet())#len(idsR)
-                    #rrd = (len(idsLeft)/nbPoints + ((maxis[a] - v) /attRange)) / 2
-                    #rd = (len(idsRight)/nbPoints  + ((v - minis[a]) /attRange) ) /2
-                    #rrd = min(len(idsLeft)/len(idsR), ((maxis[a] - v) /attRange)) 
-                    #lrd = min(len(idsRight)/len(idsR), ((v - minis[a]) /attRange) )
+                    #rrd = (len(idsLeft)/len(idsR) + ((maxis[a] - v) /attRange)) / 2
+                    #lrd = (len(idsRight)/len(idsR)  + ((v - minis[a]) /attRange) ) /2
+                    #rrd = len(idsLeft)/len(idsR) * ((maxis[a] - v) /attRange)
+                    #lrd = len(idsRight)/len(idsR) * ((v - minis[a]) /attRange) 
                     rrd = len(idsLeft)/len(idsR)
                     lrd = len(idsRight)/len(idsR)
 
@@ -566,23 +566,23 @@ class FTree :
             lsd = self.separationDegree(attRange,v,meanR)
             rsd = self.separationDegree(attRange,v,meanL)
            
-            if EVALAREAS:
+            if EVALAREAS and currDepth < 3:
                 print("LEVEL:",currDepth,"ATT",a,"SEP",v)
                 print("LEFT NODE:")
                 print("\t-CARD=",len(idsRight),"/",len(idsR),"=",(len(idsRight)/len(idsR)))
                 print("\t-RANGE=",(v - minis[a]),"/",attRange,"=",((v - minis[a]) /attRange))
-                print("\t\t REDUCTION DEGREE = ",lrd)
-                print("\t-RIGHT POINTS MEAN VALUE=",meanR)
-                print("\t\t SEPARATION DEGREE = ",lsd)
-                print("\t *** LEFT AREA DEGREE ",min(lrd,lsd),"***")
+                #print("\t\t REDUCTION DEGREE = ",lrd)
+               # print("\t-RIGHT POINTS MEAN VALUE=",meanR)
+                #print("\t\t SEPARATION DEGREE = ",lsd)
+                print("\t *** LEFT AREA DEGREE ",lrd,"***")
 
                 print("RIGHT NODE:")
                 print("\t-CARD=",len(idsLeft),"/",len(idsR),"=",(len(idsLeft)/len(idsR)))
                 print("\t-RANGE=",(maxis[a] - v),"/",attRange,"=",((maxis[a] - v) /attRange))
-                print("\t\t REDUCTION DEGREE = ",rrd)
-                print("\t-RIGHT POINTS MEAN VALUE=",meanL)
-                print("\t\t SEPARATION DEGREE = ",rsd)
-                print("\t *** LEFT AREA DEGREE ",min(rrd,rsd),"***")
+                #print("\t\t REDUCTION DEGREE = ",rrd)
+                #print("\t-LEFT POINTS MEAN VALUE=",meanL)
+                #print("\t\t SEPARATION DEGREE = ",rsd)
+                print("\t *** RIGHT AREA DEGREE ",rrd,"***")
                 print('\n')
 
 
@@ -653,19 +653,19 @@ if __name__ == "__main__":
     header.append("CLASS")
     d = Dataset("../Data/"+real_datasets[idx_dataset]+".csv", header, converters, True, 0.8)
 
-    d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
-    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
+    d = Dataset("../Data/data8S.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0)
+#    d = Dataset("../Data/DataGauss.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8)
 #    d = Dataset("../Data/diabetes.csv",["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","CLASS"], {0: lambda s: int(s.strip() or 0),1: lambda s: int(s.strip() or 0),2: lambda s: int(s.strip() or 0),3: lambda s: int(s.strip() or 0),4: lambda s: int(s.strip() or 0),5: lambda s: float(s.strip() or 0),6: lambda s: float(s.strip() or 0),7: lambda s: int(s.strip()) or 0, 8: lambda s: int(s.strip() or -1)},True,0.8)
 #    d = Dataset("../Data/DonutL.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0.8) 
-#   d = Dataset("../Data/dataTest.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0)
+#    d = Dataset("../Data/dataTest.csv",["x","y","CLASS"], {0: lambda s: float(s.strip() or 0),1: lambda s: float(s.strip() or 0),2: lambda s: int(s.strip() or 0)},True,0)
 
     e = d.getEvalDataSet()
 
 
 #    f = Forest(d, "strongfuzzy",0.84,0.05)
     
-    nbT=10
-    beta=0.1
+    nbT=1
+    beta=0.2
     f = FForest(d,beta,nbT)
 
     f.build()
@@ -739,7 +739,7 @@ if __name__ == "__main__":
         print("\t\tREGULARITIES MIN:,",round(minPC[1],3),"MAX:",round(maxPC[1],3),"MEAN:",round(moyPC[1],3),"STD:",round(stdPC[1],3))
         
         A=0.5
-        beta=0.1
+        beta=0.2
         f.setBeta(beta)
 
         print("***********\n***********")
